@@ -3,12 +3,14 @@ import { z } from "zod";
 import postgres from "postgres";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { signIn } from "@/auth";
+import { AuthError } from "next-auth";
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" });
 
 const FormSchema = z.object({
   id: z.string(),
-  customerId: z.string({
+  µ: z.string({
     invalid_type_error: "Please select a customer.",
   }),
   amount: z.coerce
@@ -73,7 +75,6 @@ export async function updateInvoice(
   prevState: State,
   formData: FormData
 ) {
-  console.log(formData);
   const validatedFields = UpdateInvoice.safeParse({
     customerId: formData.get("customerId"),
     amount: formData.get("amount"),
@@ -114,4 +115,22 @@ export async function deleteInvoice(id: string) {
   `;
 
   revalidatePath("/dashboard/invoices");
+}
+
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData
+) {
+  try {
+    await signIn("credentials", formData);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case "CredentialsSignin":
+          return "Invalid email or password.";
+        default:
+          return "Authentication error. Please try again.";
+      }
+    }
+  }
 }
